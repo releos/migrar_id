@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Migrar ID — La Intersección</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: sans-serif; background: #111827; color: #f3f4f6; }
+        .card { background: #1f2937; border: 1px solid #374151; border-radius: 1rem; padding: 2rem; max-width: 480px; width: 100%; }
+        .label { font-size: 0.7rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.3rem; }
+        .mono { font-family: monospace; font-size: 0.8rem; background: #111827; border: 1px solid #374151; border-radius: 0.5rem; padding: 0.75rem; word-break: break-all; color: #818cf8; }
+        .input { width: 100%; background: #111827; border: 1px solid #4b5563; border-radius: 0.5rem; padding: 0.75rem; color: #f3f4f6; outline: none; transition: border-color 0.2s; font-size: 0.95rem; }
+        .input:focus { border-color: #6366f1; }
+        .btn-primary { background: #4f46e5; color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 700; border: none; cursor: pointer; width: 100%; transition: background 0.2s; }
+        .btn-primary:hover { background: #4338ca; }
+        .btn-secondary { background: #374151; color: #d1d5db; padding: 0.6rem 1.2rem; border-radius: 0.5rem; font-weight: 600; border: none; cursor: pointer; width: 100%; transition: background 0.2s; }
+        .btn-secondary:hover { background: #4b5563; }
+        .error { color: #f87171; font-size: 0.85rem; }
+        .success { color: #34d399; font-size: 0.85rem; }
+        .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 700; }
+        .badge-old { background: #7c3aed33; color: #a78bfa; border: 1px solid #7c3aed55; }
+        .badge-new { background: #05966933; color: #34d399; border: 1px solid #05966955; }
+        .badge-change { background: #d9770633; color: #fb923c; border: 1px solid #d9770655; }
+        details > summary { cursor: pointer; list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 gap-6">
+
+    <div class="card">
+        <div class="text-center mb-6">
+            <h1 class="text-2xl font-extrabold text-white">Migrar / Actualizar ID</h1>
+            <p class="text-gray-400 text-sm mt-1">Herramienta de La Intersección</p>
+        </div>
+
+        <!-- PASO 1: pegar o subir el ID antiguo -->
+        <div id="step-input">
+            <p class="text-gray-300 text-sm mb-4">
+                Pega tu ID privado actual o sube tu archivo de ID para detectarlo automáticamente.
+            </p>
+
+            <div class="mb-3">
+                <div class="label">Tu ID privado actual</div>
+                <textarea id="input-private-id" class="input" rows="3"
+                    placeholder="Pega aquí tu ID privado (el largo)..."></textarea>
+            </div>
+
+            <div class="relative flex items-center gap-3 my-4">
+                <div class="flex-1 h-px bg-gray-700"></div>
+                <span class="text-gray-600 text-xs">o</span>
+                <div class="flex-1 h-px bg-gray-700"></div>
+            </div>
+
+            <label class="btn-secondary flex items-center justify-center gap-2 cursor-pointer mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                Subir archivo de ID (.html)
+                <input type="file" id="file-input" accept=".html" class="hidden">
+            </label>
+
+            <p id="step-input-error" class="error hidden mb-3"></p>
+
+            <button class="btn-primary" onclick="detectId()">Continuar →</button>
+        </div>
+
+        <!-- PASO 2: formulario según tipo -->
+        <div id="step-form" class="hidden">
+
+            <div id="detected-info" class="mb-5 bg-gray-900/60 rounded-lg p-4 border border-gray-700">
+                <div class="label mb-1">ID detectado</div>
+                <div class="mono mb-2" id="detected-id-display"></div>
+                <div id="detected-badge"></div>
+            </div>
+
+            <!-- Campos comunes -->
+            <div class="space-y-4 mb-4">
+                <div>
+                    <div class="label">Nuevo nombre de usuario <span class="normal-case text-gray-600">(aparece en el podio)</span></div>
+                    <input id="form-username" class="input" type="text" maxlength="12"
+                        placeholder="ej: nekro99" autocomplete="off" spellcheck="false">
+                    <p class="text-xs text-gray-600 mt-1">3–12 caracteres. Solo letras, números y guion bajo.</p>
+                </div>
+                <div>
+                    <div class="label">Nuevo nombre de display</div>
+                    <input id="form-displayname" class="input" type="text" maxlength="20"
+                        placeholder="ej: El Detective Oscuro">
+                    <p class="text-xs text-gray-600 mt-1">Máximo 20 caracteres. Puede tener espacios y tildes.</p>
+                </div>
+            </div>
+
+            <!-- Aviso importante -->
+            <div id="migration-warning" class="hidden bg-yellow-900/20 border border-yellow-700/40 rounded-lg p-3 mb-4 text-xs text-yellow-200">
+                <strong>⚠️ Importante:</strong> Al migrar un ID antiguo, tu <strong>ID público cambiará</strong>
+                (de un código largo a <code>usuario#xxxx</code>). Si ya tienes puntos registrados en el podio
+                con el ID anterior, deberás comunicárselo al administrador para que actualice la hoja.
+            </div>
+
+            <p id="step-form-error" class="error hidden mb-3"></p>
+
+            <div class="flex gap-3">
+                <button class="btn-secondary" style="width:auto;padding: 0.75rem 1rem;" onclick="goBack()">← Volver</button>
+                <button class="btn-primary" onclick="generateNewId()">Generar nuevo ID</button>
+            </div>
+        </div>
+
+        <!-- PASO 3: resultado -->
+        <div id="step-result" class="hidden">
+            <div class="text-center mb-4">
+                <span class="text-3xl">✅</span>
+                <h2 class="text-lg font-bold text-white mt-1">Nuevo ID generado</h2>
+            </div>
+
+            <div class="space-y-3 mb-5">
+                <div>
+                    <div class="label">ID público (podio)</div>
+                    <div class="mono text-base tracking-wider" id="result-public-id"></div>
+                </div>
+                <div>
+                    <div class="label">Nombre de display</div>
+                    <div class="mono" id="result-displayname"></div>
+                </div>
+                <details class="bg-gray-900/40 rounded-lg border border-gray-700">
+                    <summary class="px-3 py-2 text-xs text-gray-500 hover:text-gray-300 uppercase tracking-widest select-none">
+                        🔒 Ver ID privado completo
+                    </summary>
+                    <div class="px-3 pb-3 pt-1">
+                        <div class="mono text-xs text-gray-500" id="result-private-id"></div>
+                    </div>
+                </details>
+            </div>
+
+            <div class="bg-indigo-900/20 border border-indigo-700/40 rounded-lg p-3 mb-5 text-xs text-indigo-200">
+                El nuevo archivo contiene tu acceso completo. Al abrirlo te redirigirá automáticamente al juego con el nuevo ID.
+            </div>
+
+            <button class="btn-primary mb-3" onclick="downloadNewId()">⬇️ Descargar nuevo archivo de ID</button>
+            <button class="btn-secondary" onclick="startOver()">Migrar otro ID</button>
+        </div>
+    </div>
+
+    <p class="text-gray-700 text-xs text-center max-w-xs">
+        Este archivo funciona de forma completamente local.<br>
+        Ningún dato sale de tu navegador.
+    </p>
+
+    <script>
+        // ─── CONSTANTES ───────────────────────────────────────────────────────
+        // Cambia esta URL por la de tu juego
+        const GAME_URL = 'https://tu-sitio.com/index.html';
+
+        // ─── HELPERS DE CODIFICACIÓN (igual que en el juego) ─────────────────
+        function encodeDisplayName(name) {
+            try {
+                return btoa(unescape(encodeURIComponent(name)))
+                    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+            } catch(e) { return btoa(name).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, ''); }
+        }
+
+        function decodeDisplayName(enc) {
+            try {
+                const b64 = enc.replace(/-/g, '+').replace(/_/g, '/');
+                return decodeURIComponent(escape(atob(b64)));
+            } catch(e) { return enc; }
+        }
+
+        function randomBase36(len) {
+            const chars = '0123456789abcdefghijklmnopqrstuvwxyz';
+            const arr = new Uint8Array(len);
+            crypto.getRandomValues(arr);
+            return Array.from(arr, b => chars[b % 36]).join('');
+        }
+
+        function getPublicId(id) {
+            if (!id) return '';
+            if (id.includes('~')) {
+                const parts = id.split('~');
+                return `${parts[0]}#${parts[3].slice(0, 4)}`;
+            }
+            const parts = id.split('-');
+            return parts.length === 6 ? parts[5] : id;
+        }
+
+        function getJoinDateFromOld(id) {
+            // Formato viejo: extrae timestamp del 6º segmento
+            const parts = id.split('-');
+            if (parts.length !== 6) return null;
+            const encoded = parts[5];
+            const digits = encoded.split('').filter((_, i) => i % 2 === 0).join('');
+            const ts = parseInt(digits, 10);
+            if (isNaN(ts)) return null;
+            return new Date(ts);
+        }
+
+        function buildNewId(username, displayName, joinDate) {
+            const user    = username.toLowerCase().trim();
+            const nameEnc = encodeDisplayName(displayName.trim());
+            const d       = joinDate || new Date();
+            const yyyymmdd = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+            const dateB36 = yyyymmdd.toString(36);
+            const rand    = randomBase36(8);
+            return `${user}~${nameEnc}~${dateB36}~${rand}`;
+        }
+
+        // ─── ESTADO ──────────────────────────────────────────────────────────
+        let detectedId   = '';
+        let detectedType = ''; // 'old' | 'new'
+        let newPrivateId = '';
+
+        // ─── PASO 1: detectar ID ─────────────────────────────────────────────
+        document.getElementById('file-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const content = ev.target.result;
+                const matchNew = content.match(/restore_id=([A-Za-z0-9~_\-]{10,200})/);
+                const matchOld = content.match(/localStorage\.setItem\('mystery_game_userid', '([a-f0-9-]+)'\)/);
+                const found = matchNew ? decodeURIComponent(matchNew[1]) : (matchOld ? matchOld[1] : null);
+                if (found) {
+                    document.getElementById('input-private-id').value = found;
+                    showError('step-input-error', '');
+                } else {
+                    showError('step-input-error', 'No se encontró un ID válido en el archivo.');
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        function detectId() {
+            const raw = document.getElementById('input-private-id').value.trim();
+            if (!raw) { showError('step-input-error', 'Pega tu ID o sube el archivo.'); return; }
+
+            const isNew = raw.includes('~');
+            const isOld = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-/.test(raw);
+
+            if (!isNew && !isOld) {
+                showError('step-input-error', 'Formato de ID no reconocido. Asegúrate de pegar el ID privado completo.');
+                return;
+            }
+
+            detectedId   = raw;
+            detectedType = isNew ? 'new' : 'old';
+            showError('step-input-error', '');
+            renderFormStep();
+        }
+
+        function renderFormStep() {
+            // Info del ID detectado
+            document.getElementById('detected-id-display').textContent = detectedId;
+
+            const badgeEl = document.getElementById('detected-badge');
+            if (detectedType === 'old') {
+                badgeEl.innerHTML = '<span class="badge badge-old">Formato antiguo (UUID)</span>';
+                document.getElementById('migration-warning').classList.remove('hidden');
+                // Intentar prerellenar fecha
+                const joinDate = getJoinDateFromOld(detectedId);
+                if (joinDate) {
+                    const ds = joinDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+                    document.getElementById('detected-badge').innerHTML +=
+                        `<span class="text-xs text-gray-500 ml-2">Miembro desde ${ds}</span>`;
+                }
+            } else {
+                badgeEl.innerHTML = '<span class="badge badge-new">Formato nuevo</span>';
+                document.getElementById('migration-warning').classList.add('hidden');
+                // Prerellenar con datos existentes
+                const parts = detectedId.split('~');
+                document.getElementById('form-username').value    = parts[0] || '';
+                document.getElementById('form-displayname').value = decodeDisplayName(parts[1] || '');
+            }
+
+            document.getElementById('step-input').classList.add('hidden');
+            document.getElementById('step-form').classList.remove('hidden');
+        }
+
+        // ─── PASO 2: generar nuevo ID ─────────────────────────────────────────
+        function generateNewId() {
+            const username    = document.getElementById('form-username').value.trim();
+            const displayName = document.getElementById('form-displayname').value.trim();
+
+            if (!/^[A-Za-z0-9_]{3,12}$/.test(username)) {
+                showError('step-form-error', 'El nombre de usuario debe tener 3–12 caracteres y solo letras, números o guion bajo.');
+                return;
+            }
+            if (!displayName) {
+                showError('step-form-error', 'El nombre de display no puede estar vacío.');
+                return;
+            }
+            showError('step-form-error', '');
+
+            // Preservar fecha de alta si es posible
+            let joinDate = null;
+            if (detectedType === 'old') {
+                joinDate = getJoinDateFromOld(detectedId);
+            } else {
+                try {
+                    const dateB36 = detectedId.split('~')[2];
+                    const yyyymmdd = parseInt(dateB36, 36);
+                    const y = Math.floor(yyyymmdd / 10000);
+                    const m = Math.floor((yyyymmdd % 10000) / 100) - 1;
+                    const d = yyyymmdd % 100;
+                    joinDate = new Date(y, m, d);
+                } catch(e) { joinDate = null; }
+            }
+
+            newPrivateId = buildNewId(username, displayName, joinDate);
+
+            // Mostrar resultado
+            document.getElementById('result-public-id').textContent    = getPublicId(newPrivateId);
+            document.getElementById('result-displayname').textContent  = displayName;
+            document.getElementById('result-private-id').textContent   = newPrivateId;
+
+            document.getElementById('step-form').classList.add('hidden');
+            document.getElementById('step-result').classList.remove('hidden');
+        }
+
+        // ─── PASO 3: descargar ────────────────────────────────────────────────
+        function downloadNewId() {
+            if (!newPrivateId) return;
+            const publicId    = getPublicId(newPrivateId);
+            const displayName = decodeDisplayName(newPrivateId.split('~')[1]);
+            const parts       = newPrivateId.split('~');
+            let joinStr = '';
+            try {
+                const yyyymmdd = parseInt(parts[2], 36);
+                const y = Math.floor(yyyymmdd / 10000);
+                const m = Math.floor((yyyymmdd % 10000) / 100) - 1;
+                const d = yyyymmdd % 100;
+                joinStr = new Date(y, m, d).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+            } catch(e) {}
+
+            const html = `<!DOCTYPE html><html><head><title>Mi ID - La Intersección</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body{background:#111827;color:#f3f4f6;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;text-align:center;padding:1rem}
+.card{background:#1f2937;padding:2rem;border-radius:1rem;border:1px solid #374151;max-width:420px;width:100%}
+.label{font-size:.7rem;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.25rem;text-align:left}
+.code{background:#111;padding:.75rem 1rem;margin:.4rem 0 1rem;font-family:monospace;font-size:1.05rem;border:1px solid #4f46e5;color:#818cf8;word-break:break-all;border-radius:.5rem;text-align:left}
+.code.small{font-size:.7rem;color:#4b5563;border-color:#374151}
+.join{font-size:.75rem;color:#6b7280;margin-bottom:1.25rem}
+.note{font-size:.8rem;color:#9ca3af;margin:1rem 0;line-height:1.5}
+.btn{background:#4f46e5;color:white;padding:.75rem 1.5rem;text-decoration:none;border-radius:.5rem;font-weight:bold;display:inline-block}
+.btn:hover{background:#4338ca}
+</style>
+</head><body>
+<div class="card">
+<h1 style="margin-top:0">Tu Llave de Acceso</h1>
+<div class="label">Tu nombre de display</div>
+<div class="code">${displayName}</div>
+<div class="label">Tu ID público (el que aparece en el podio)</div>
+<div class="code">${publicId}</div>
+${joinStr ? `<div class="join">Miembro desde ${joinStr}</div>` : ''}
+<div class="label">ID privado completo (no compartir)</div>
+<div class="code small">${newPrivateId}</div>
+<div class="note">Tu acceso completo está integrado en este archivo.<br>Guárdalo en un lugar seguro.</div>
+<a href="${GAME_URL}?restore_id=${encodeURIComponent(newPrivateId)}" class="btn">Entrar al Juego</a>
+</div>
+<script>
+setTimeout(()=>{ window.location.href="${GAME_URL}?restore_id=${encodeURIComponent(newPrivateId)}"; },1200);
+<\/script>
+</body></html>`;
+
+            const blob = new Blob([html], { type: 'text/html' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href = url; a.download = 'mi_id_interseccion.html'; a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // ─── NAVEGACIÓN ──────────────────────────────────────────────────────
+        function goBack() {
+            document.getElementById('step-form').classList.add('hidden');
+            document.getElementById('step-input').classList.remove('hidden');
+        }
+
+        function startOver() {
+            detectedId = ''; detectedType = ''; newPrivateId = '';
+            document.getElementById('input-private-id').value = '';
+            document.getElementById('file-input').value = '';
+            document.getElementById('form-username').value = '';
+            document.getElementById('form-displayname').value = '';
+            document.getElementById('step-result').classList.add('hidden');
+            document.getElementById('step-input').classList.remove('hidden');
+        }
+
+        function showError(id, msg) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.textContent = msg;
+            el.classList.toggle('hidden', !msg);
+        }
+    </script>
+</body>
+</html>
