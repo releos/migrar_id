@@ -134,7 +134,8 @@
             </div>
 
             <button class="btn-primary mb-3" onclick="downloadNewId()">⬇️ Descargar nuevo archivo de ID</button>
-            <button class="btn-secondary" onclick="startOver()">Migrar otro ID</button>
+            <button class="btn-primary mb-3" style="background:#059669;" onmouseover="this.style.background='#047857'" onmouseout="this.style.background='#059669'" onclick="window.location.href = GAME_URL + '?restore_id=' + encodeURIComponent(newPrivateId)">🌐 Actualizar ID en la web automáticamente</button>
+            <button class="btn-secondary" onclick="window.location.href = GAME_URL">← Volver al juego</button>
         </div>
     </div>
 
@@ -231,15 +232,26 @@
             if (!raw) { showError('step-input-error', 'Pega tu ID o sube el archivo.'); return; }
 
             const isNew = raw.includes('~');
-            const isOld = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}-/.test(raw);
+            // Formato antiguo: UUID de 5 segmentos (8-4-4-4-12) con 6º segmento opcional en mayúsculas
+            const isOld = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}(-[A-Z0-9]{26})?$/.test(raw);
 
-            if (!isNew && !isOld) {
+            if (isNew) {
+                showError('step-input-error', 'Este ID ya está en el formato nuevo y no necesita migración.');
+                return;
+            }
+            if (!isOld) {
                 showError('step-input-error', 'Formato de ID no reconocido. Asegúrate de pegar el ID privado completo.');
                 return;
             }
 
+            // Comprobar si ya fue migrado anteriormente
+            if (localStorage.getItem('ID_USADA:' + raw)) {
+                showError('step-input-error', '⚠️ Este ID ya fue migrado anteriormente y no puede volver a usarse.');
+                return;
+            }
+
             detectedId   = raw;
-            detectedType = isNew ? 'new' : 'old';
+            detectedType = 'old';
             showError('step-input-error', '');
             renderFormStep();
         }
@@ -303,6 +315,11 @@
             }
 
             newPrivateId = buildNewId(username, displayName, joinDate);
+
+            // Marcar el ID antiguo como ya migrado
+            if (detectedType === 'old') {
+                localStorage.setItem('ID_USADA:' + detectedId, '1');
+            }
 
             // Mostrar resultado
             document.getElementById('result-public-id').textContent    = getPublicId(newPrivateId);
